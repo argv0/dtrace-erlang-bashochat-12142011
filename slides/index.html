@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<!--[if lt IE 7]> <html class="no-js ie6" lang="en"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js ie7" lang="en"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js ie8" lang="en"> <![endif]-->
+<!--[if gt IE 8]><!-->  <html class="no-js" lang="en"> <!--<![endif]-->
+<head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+
+        <title>DTrace and the Erlang VM</title>
+
+        <meta name="description" content="DTrace and Erlang">
+        <meta name="author" content="Andy Gross">
+        <meta name="viewport" content="width=1024, user-scalable=no">
+
+        <!-- Core and extension CSS files -->
+        <link rel="stylesheet" href="core/deck.core.css">
+        <link rel="stylesheet" href="extensions/goto/deck.goto.css">
+        <link rel="stylesheet" href="extensions/menu/deck.menu.css">
+        <link rel="stylesheet" href="extensions/navigation/deck.navigation.css">
+        <link rel="stylesheet" href="extensions/status/deck.status.css">
+        <link rel="stylesheet" href="extensions/hash/deck.hash.css">
+        <link rel="stylesheet" href="extensions/scale/deck.scale.css">
+        <!-- Theme CSS files (menu swaps these out) -->
+        <link rel="stylesheet" id="style-theme-link" href="themes/style/neon.css">
+        <link rel="stylesheet" id="transition-theme-link" href="themes/transition/horizontal-slide.css">
+
+        <!-- Custom CSS just for this page -->
+        <link rel="stylesheet" href="dtrace-erlang.css">
+
+        <script src="modernizr.custom.js"></script>
+</head>
+
+<body class="deck-container">
+
+<section class="slide" id="title-slide">
+        <h1>DTrace and Erlang</h1>
+        <p>
+        <h3>Andy Gross (@argv0)</h3>
+        <h3>Principal Architect, Basho Technologies</h3>
+        <p>
+</section>
+
+<section class="slide" id="the-problem">
+  <p><h2>The Problem: Visibility Into Production Systems</h2></p>
+  <p><h3>Typical Scenario:</h3></p>
+  <ol>
+    <li><h3>A customer 99th/100th percentile latency SLA alarm fires a couple times a week.</h3>
+      <ul class="slide">
+        <li>Pagers go off, people get woken up.</li>
+        <li>This should never happen.</li>
+      </ul>
+    </li>
+    <li><h3 class="slide">Problem is not reproducible in Basho or customer labs.</h3>
+    <ul class="slide">
+      <li>We need to test/debug in production :(</li>
+      <li>This should never happen.</li>
+    </ul>
+    </li>
+  </ol>
+</section>
+
+
+<section class="slide" id="typical-solution">
+  <p><h2>Visibility Into Production Systems</h2></>
+  <p><h3>Typical Solution:</h3></p>
+  <ol>
+    <li><h3>Collect data using native Erlang tracing.</h3></li>
+    <li><h3>Analyze offline with R.</h3></li>
+    <li><h3>Deliver candidate fix as hot-patch to customer</h3></li>
+    <li><h3>Repeat until fixed</h3></li>
+      <ul class="slide">
+        <li>Typical Cost: Sr. Engineer, 1-4 hours 1-4 times/week, 1-4 weeks</li>
+        <li>Basho employees deploying hotfixes to customer's production networks</li>
+        <li>This should never happen!</li>
+      </ul>
+    </li>
+</section>
+<section class="slide" id="toolkit">
+<h2>Current Erlang Performance Analysis Tools</h2>
+<ul>
+  <li><h3>Profilers (cprof, eprof, fprof) : not suitable for production</h3></li>
+  <li><h3>Erlang tracing: easy to cause message/memory explosion</h3></li>
+  <li><h3>Custom gen_event processes: requires custom code</h3></li>
+</ul>
+<h2>We need better tools!</h2>
+</section>
+
+<section class="slide" id="enter-dtrace">
+<h2>DTrace Probes</h2>
+<h3>Code annotations that fire when enabled</h3>
+<h3>Dynamic: NOOP instructions when disabled</h3>
+<h3>Kernel hot-patches running executable to enable probes</h3>
+</ul>
+<h3>Probe event-gathering infrastructure, D scripting language</h3>
+</section>
+
+<section class="slide" id="dtrace-architecture">
+<h2>DTrace Architecture</h2>
+<img src="images/dtrace-architecture.gif"></p>
+</section>
+<section class="slide" id="why-dtrace">
+<h2>Why DTrace?</h2>
+<h3>DTrace Unifies:</h3>
+<ul>
+  <li>Definition of kernel and user space probes.</li>
+  <li>Tools used for kernel and user tracing.</li>
+  <li>Tools used for production vs. debugging/testing</li>
+  <li>Tools used across languages/infrastructure: C/C++/Java/Python/Ruby/MySQL,Postgres</li>
+</ul>
+<h3>Enabled probes: very small overhead</h3>
+<h3>Easy to add probes to applications</h3>
+<h3>Stable: won't crash kernel or app</h3>
+</section>
+
+<section class="slide" id="dtrace-and-erlang">
+<h2>DTrace and Erlang</h2>
+<h3>Experimental integration done in 2008, abandoned</h3>
+<h3>2011:  DTrace will land in an R15X release</h3>
+<h3>OSX, Solaris, Linux (via SystemTap)</h3>
+<h3>Authors:</h3>
+<ul>
+  <li>Scott Fritchie (Basho)</li>
+  <li>Dustin Sallings (Couchbase)</li>
+  <li>Michal Ptaszek</li>
+</ul>
+<h4><a href="https://github.com/slfritchie/otp"><pre>git clone https://github.com/slfritchie/otp -b dtrace-r14b04</pre></a></h4>
+</section>
+
+<section class="slide" id="erlang-provider">
+<h2>Erlang DTrace Provider</h2>
+<h3>Processes: spawn, exit, hibernate, scheduled</h3>
+<h3>Messages: send, queued, received, exit signals</h3>
+<h3>Memory: GC(minor/major), heap size changes</h3>
+<h3>Copying: within and across heaps</h3>
+<h3>Function calls: including BIFs, NIFs- entry and return</h3>
+<h3>Network: monitors, busy ports, output events</h3>
+<h3>Ports: open, command, control, busy/not busy</h3>
+<h3>Drivers: callback API 100% instrumented</h3>
+<h3>efile_drv.c: 100% instrumented</h3>
+</section>
+
+<section class="slide" id="example-process-events">
+<h2>Process Events</h2>
+<pre><code>
+    /* dtrace -qs /path/to/this/script.d */
+    erlang*:::process-spawn {
+        printf("pid %s mfa %s\n",
+               copyinstr(arg0), copyinstr(arg1))
+    }
+
+    erlang*:::process-exit {
+        printf("pid %s reason %s\n",
+               copyinstr(arg0), copyinstr(arg1))
+    }
+</code></pre>
+</section>
+
+<section class="slide" id="example-process-births-deaths">
+<h2>Process Births and Deaths</h2>
+<pre><code>
+    /* dtrace -s /path/to/this/script.d */
+    BEGIN {
+        spawns = exits = 0
+    }
+
+    erlang*:::process-spawn { spawns++ }
+    erlang*:::process-exit { exits++ }
+
+    profile:::tick-1sec {
+        printf("Spawns %d exits %d", spawns, exits);
+        spawns = exits = 0
+    }
+</code></pre>
+</section>
+
+<section class="slide" id="example-send-latency">
+<h2>Message Send -> Scheduling Latency</h2>
+<pre><code>
+    /* Example from Dustin Sallings */
+    /* dtrace -s /path/to/this/script */
+    BEGIN { printf("Press control-c to print histogram\n") }
+
+    erlang*:::message-send {
+        sent[copyinstr(arg1)] = timestamp
+    }
+
+    erlang*:::process-scheduled
+    / sent[copyinstr(arg0)] /
+    {
+        @t = quantize(timestamp - sent[copyinstr(arg0)]);
+        sent[copyinstr(arg0)] = 0
+    }
+</code></pre>
+</section>
+
+<section class="slide" id="example-send-latency-results">
+<h2>Message Send -> Scheduling Latency</h2>
+<pre><code>
+    sbb# dtrace -qs /tmp/send-to-sched.d
+    Press control-c to print histogram
+    ^C
+       value  ------------- Distribution ------------- count
+        8192 |                                         0
+       16384 |@@@@@@@@@@@@@@@@@@@@@@@@@                119
+       32768 |@@@@@@@@@@@@                             58
+       65536 |@@@                                      13
+      131072 |                                         1
+      262144 |                                         0
+
+    %% Run on an idle Erlang VM on power-saving laptop:
+    %%     application:start(sasl).
+    %%     application:start(crypto).
+</code></pre>
+</section>
+
+<section class="slide" id="example-long-func-calls">
+<h2>Function calls > 1msec</h2>
+<pre><code>
+    erlang*:::function-entry {
+        self->start[copyinstr(arg0),
+                    copyinstr(arg1)] = timestamp
+    }
+
+    erlang*:::function-return
+    /self->start[copyinstr(arg0),
+                 copyinstr(arg1)] != 0 &&
+      timestamp - self->start[copyinstr(arg0),
+                              copyinstr(arg1)] > 1000000 /
+    {
+        duration = timestamp - (self->start[copyinstr(arg0),
+                                            copyinstr(arg1)]);
+        printf("CALL: %s - %s - %d nanoseconds\n",
+              copyinstr(arg0), copyinstr(arg1), duration)
+    }
+</code></pre>
+</section>
+
+<section class="slide" id="example-cpu-migration">
+<h2>CPU Migrations</h2>
+<h3>Function call returns on different CPU than it started</h3>
+<pre><code>
+    erlang*:::function-entry {
+        _cpu[copyinstr(arg0), copyinstr(arg1), arg2] = cpu+1
+    }
+
+    erlang*:::function-return
+    / _cpu[copyinstr(arg0), copyinstr(arg1), arg2] != 0 &&
+      _cpu[copyinstr(arg0), copyinstr(arg1), arg2] != cpu+1 /
+    {
+        depth = arg2;
+        proc = copyinstr(arg0);
+        mfa = copyinstr(arg1);
+        callcpu = _cpu[proc, mfa, depth] - 1;
+        printf("%s %s @ stack depth %d: CPU %d -> %d\n",
+              proc, mfa, depth, callcpu, cpu);
+    }
+
+    erlang*:::function-return
+    { _cpu[copyinstr(arg0), copyinstr(arg1), arg2] = 0 }
+</pre></code>
+
+</section>
+
+<section class="slide" id="example-cpu-migration-results">
+<h2>CPU Migrations</h2>
+<pre><code>
+    <0.91.0> erl_eval:add_bindings/2 @ stack depth 4: CPU 4 -> 2
+    <0.91.0> erl_eval:add_bindings/2 @ stack depth 4: CPU 2 -> 6
+</code></pre>
+</section>
+
+<section class="slide" id="example-io-qsize"/>
+<h2>Largest IO worker queue</h2>
+<pre><code>
+   /* dtrace -s /path/to/this/script.d */
+    BEGIN { biggest = 0 }
+
+    erlang*:::aio_pool-add
+    /arg1 > biggest/ { biggest = arg1 }
+
+    profile:::tick-10sec {
+        printf("Largest async work queue size: %d\n",
+               biggest);
+        biggest = 0;
+    }
+</code></pre>
+</section>
+
+<section class="slide" id="efile-drv-sequence">
+<h2><code>file:rename</code> Message Path</h2>
+<img src="images/efile_drv2.png">
+</section>
+
+
+<section class="slide" id="example-user-probe">
+<h2>Probes from Erlang Code</h2>
+<pre><code>
+    %% erlang*:::user_trace-i4s4 disabled
+    > dtrace:p("Hello, world!").
+    false
+
+    %% erlang*:::user_trace-i4s4 enabled
+    > dtrace:p(42).
+    true
+
+    %% Up to 4 integers and 4 iolist() args
+    dtrace:p(1, 2, 4, 8, "a", "b", "c", "and d").
+</code></pre>
+</section>
+
+<section class="slide" id="instruments">
+<h2>Instruments (OS X)</h2>
+<h3>Performance analysis tool for OSX, based on DTrace.</h3>
+<img src="images/dtrace-instruments.jpg">
+</section>
+
+<section class="slide" id="custom-instruments">
+<h2>Custom Instruments</h2>
+<img src="images/custom-instruments.jpg">
+</section>
+
+<section class="slide" id="resources">
+<h2>Resources</h2>
+<ul>
+  <li>Code: <a href="https://github.com/slfritchie/otp"><code>https://github.com/slfritchie/otp</code></a></li>
+  <li>Examples+Instrumented Riak Build (OS X Lion Only): <a href="https://github.com/argv0/dtrace-erlang-bashochat-12142011"><code>https://github.com/argv0/dtrace-erlang-bashochat-12142011</code></a></li>
+  <li>DTrace Book: <a href="http://www.amazon.com/DTrace-Dynamic-Tracing-Solaris-FreeBSD/dp/0132091518"><code>http://www.amazon.com/DTrace-Dynamic-Tracing-Solar
+is-FreeBSD/dp/0132091518</code></a></li>
+  <li>Scott Fritchie @ EUC11: <a href="http://www.erlang-factory.com/conference/ErlangUserConference2011/speakers/ScottLystigFritchie"><code>http://www.erlang-factory.com/conference/ErlangUserConference2011/speakers/ScottLystigFritchie</code></a></li>
+</ul>
+<br/>
+<h2>Questions?</h2>
+</section>
+
+
+<a href="#" class="deck-prev-link" title="Previous">&#8592;</a>
+<a href="#" class="deck-next-link" title="Next">&#8594;</a>
+
+<p class="deck-status">
+        <span class="deck-status-current"></span>
+        /
+        <span class="deck-status-total"></span>
+</p>
+<a href="." title="Permalink to this slide" class="deck-permalink">#</a>
+<script>window.jQuery || document.write('<script src="jquery-1.7.min.js"><\/script>')</script>
+
+<!-- Deck Core and extensions -->
+<script src="core/deck.core.js"></script>
+<script src="extensions/hash/deck.hash.js"></script>
+<script src="extensions/menu/deck.menu.js"></script>
+<script src="extensions/goto/deck.goto.js"></script>
+<script src="extensions/status/deck.status.js"></script>
+<script src="extensions/navigation/deck.navigation.js"></script>
+<script src="extensions/navigation/deck.scale.js"></script>
+
+<!-- Specific to this page -->
+<script src="dtrace-erlang.js"></script>
+
+</body>
+</html>
